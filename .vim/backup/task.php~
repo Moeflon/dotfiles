@@ -1,0 +1,266 @@
+<?php
+/**
+ * This script gets data from xml order dumps, reformats it, and checks for 
+ * mistakes in the given shipping addresses
+ *
+ * PHP version 5.3
+ *
+ * @author     Vic Degraeve <vicdegraeve@me.com>
+ * @version    0.1
+ */
+
+// Function
+function exportCurrent($xml, $ini, $file, $status) {
+  // Back to XML
+  $doc = new DOMDocument();
+  $doc->formatOutput = TRUE;
+  $raw = $xml->asXML();
+  $raw =  str_ireplace(array('n.v.t', 'n.v.t.', 'nvt', 'niet van toepassing', 'n/a', 'n.a', 'n.a.', 'not applicable' , 'non applicable'), '', $raw);
+  $doc->loadXML($raw);
+  $xml = $doc->saveXML();
+
+  // Save to file
+  $location = $ini[$status.'_directory'];
+  if(!is_dir($location)) mkdir($location);
+  if($status == 'incorrect' || ($status == 'correct' && $ini['enable_correct'] == 1)) file_put_contents($location . '/' . basename($file), $xml);
+  
+  // Backup current
+  if($ini['enable_backup'] == 1) {
+    if(!is_dir($ini['backup'])) mkdir($ini['backup']);
+    rename($file, $ini['backup'] . '/' . basename($file));
+  }
+  else {
+    unlink($file);
+  }
+  
+  // Return xml
+  return Array($xml, $location . '/' . basename($file));
+}
+
+// Load up config file 
+$ini = parse_ini_file(implode('/', array_slice(explode("/", __FILE__), 0, -2)).'/config.ini');
+
+// Hardcode constants
+define('ORDERS', $ini['directory']);
+define('SCRIPTPATH', dirname(__FILE__));
+
+require_once(SCRIPTPATH . '/' . 'lib' . '/' . 'geocode.php');
+require_once(SCRIPTPATH . '/' . 'lib' . '/' . 'push.php');
+require_once(SCRIPTPATH . '/' . 'lib' . '/' . 'filter.php');
+require_once(SCRIPTPATH . '/' . 'lib' . '/' . 'number.php');
+$filter = new Filter;
+$number = new Number;
+
+// If any of the last pushes did not succeed, retry
+require_once(SCRIPTPATH . '/' . 'push.php');
+
+/**
+ * The script loops through a directory configured in a config found in the root
+ * directory.
+ */
+foreach (glob(ORDERS . '/' . '*.xml') as $orderfile) {
+  $basename = basename($orderfile);
+  echo "Current time: ".date('d-m-Y H:i:s')."\n";
+  echo "Starting for file: $basename\n";
+  
+  // Read XML file
+  $order = simplexml_load_file($orderfile);
+  $s_address = &$order->order->ship_data->address;
+  
+  // Determine the right script to run based on the filename
+  $matches = Array();
+  preg_match('/^(.*?)(?=-|$)/', basename($orderfile), $matches);
+  $ordertype = $matches[0];
+  $ordertypescript = strtolower($ordertype) . '.php';
+  $ordertypescriptpath = SCRIPTPATH . '/' . 'ordertypes' . '/' . $ordertypescript;
+  
+  // Does that script exist?
+  if(file_exists($ordertypescriptpath)) {
+    // Set default legend
+    $legend = Array (
+      'street' => 'address1',
+      'number' => 'address2',
+      'additional' => 'address3'  
+    );
+
+    // Run the script, it will set some variables for us
+    require($ordertypescriptpath);
+  
+    // Set legend
+    foreach ((array)$s_address as $key => $val) {
+      if(!in_array($key, $legend)) {
+        $legend[$key] = $key;
+      }
+    }
+  
+    // Change standard
+    /* if(empty($s_address->address2)) {
+      $address = explode(' ', $s_address->$legend['street']);
+      $nums = Array();
+      foreach ($address as $key => $word) {
+        $key = str_replace(',', '', $word);
+        if(preg_match('#^[0-9]#', $word)){
+          array_push($nums, $key);
+        }
+      }
+      if(count($nums) !== 0) {
+        $number = $address[end($nums)];
+        unset($address[$nums[0]]);
+        $s_address->$legend['street'] = implode(' ', $address);
+        $s_address->$legend['number'] = $number;  
+      }
+    } */
+    
+    // Split number
+    if(empty($s_address->address2)) {
+      $split = $number->split($s_address->$legend['street']);
+      if($split != false) {
+        $s_address->$legend['street'] = $split[0];
+        $s_address->$legend['number'] = $split[1];
+        if(!empty($split[2])) $s_address->$legend['additional'] = $split[2];
+        
+        echo "Determined street ({$split[0]}) and number ({$split[1]}) \n";
+      }
+      else {
+        echo "Couldn't split street\n";
+      }
+    }
+
+    // Can we skip Google?
+    $filtercheck = $filter->checkFilter(SCRIPTPATH . '/' . 'filters.lav', $s_address, $legend);
+    if(array_key_exists('pass', $filtercheck)) {
+      echo "--- Filter file PASS ---\n"; 
+      $export = exportCurrent($order, $ini, $orderfile, 'correct');
+      $purexml = $export[0];
+        
+      // Send to server
+      $p = new Push;
+      $r = $p->securewebregistrations($purexml, false);
+    }
+    elseif(array_key_exists('block', $filtercheck)) {
+      echo "--- Filter file BLOCK ---\n";
+      exportCurrent($order, $ini, $orderfile, 'incorrect'); 
+    }
+    else {
+      // Allright, now let's check with google
+      $geocode = new Geocode();
+      $address = Array(
+        'street' => trim($s_address->$legend['street']),
+        'number' => intval(trim($s_address->$legend['number'])),
+        'zip' => trim($s_address->$legend['zip']),
+        'city' => trim($s_address->$legend['city'])
+      );
+
+      if(array_key_exists('exclude', $filtercheck)) {
+        $exclude = $filtercheck['exclude'];
+        foreach ($exclude as $ex) {
+          unset($address[$ex]);
+          echo "Excluding $ex\n";
+        }
+      }
+
+      $result = $geocode->getAddress(implode(' ', $address), strtolower($s_address->country), $order->order->store_name);
+  
+      // Did they find the adress?
+      if($result) {
+        # Split up if statement
+        $checknumber = ( intval(str_replace('-', '', $s_address->$legend['number'])) == intval(str_replace('-', '', $result['number'])) );
+        $checkzip = (str_replace(' ', '', strtolower($s_address->$legend['zip'])) == str_replace(' ', '', strtolower($result['zip'])));
+        $checkcity = (trim(strtolower($s_address->$legend['city'])) == trim(strtolower($result['city'])));
+
+        if(array_key_exists('ignore', $filtercheck)) {
+          $ignore = $filtercheck['ignore'];
+          ${'check'.$ignore} = true;
+          echo "Ignoring $ignore\n";
+        }
+
+        if(array_key_exists('exclude', $filtercheck)) {
+          $exclude = $filtercheck['exclude'];
+          foreach ($exclude as $ex) {
+            ${'check'.$ex} = true;
+            echo "Ignoring $ex\n";
+          }
+        }
+
+        if($checkzip == false && $checkcity == true) {
+          $checkzip = true;
+          $replace_zip = false; // Disabled because Google's zips aren't all that complete
+          echo "City is right and zip is not, assuming city correctness\n";
+        }
+
+        if(empty($result['number'])) {
+          $checknumber = true;
+          echo "Ignoring number because Google didn't return one\n";
+        }  
+
+        // Allrighty then let's check for the correctness
+        # Zip and number are correct, assuming Google's street is correct too
+        if($checknumber && $checkzip) {
+          $edited = false;
+          if($replace_street !== "false" && !empty($result['street'])) {
+            $edited = true;
+            if( strtolower(trim($s_address->$legend['street'])) == strtolower(trim($result['street'])) ) $edited = false;
+            $s_address->$legend['street'] = $result['street'];
+            echo "Street edited by Google\n";
+          } 
+
+          if($replace_zip === true && !empty($result['zip'])) {
+            $edited = true;
+            if( strtolower(trim($s_address->$legend['zip'])) == strtolower(trim($result['zip'])) ) $edited = false;
+            $s_address->$legend['zip'] = $result['zip'];
+            echo "Zip edited by Google\n";
+          }
+  
+          // Export XML
+          $export = exportCurrent($order, $ini, $orderfile, 'correct');
+          $purexml = $export[0];
+          $filelocation = $export[1];
+          
+          if($edited === true) {
+            // We want to move the exported file to the 'suggested' folder
+            echo "Google edited the address so we need to move the file to suggested";
+            rename($filelocation, $ini['suggested_directory'] . '/' . basename($filelocation));
+          }
+          else {
+            if(array_key_exists('push', $filtercheck)) {
+              // Send to server
+              $p = new Push;
+              $r = $p->securewebregistrations($purexml, false);
+              if($r) {
+                echo "File was pushed and saved in correct directory";
+              }
+              else {
+                rename($filelocation, $ini['push_directory'] . '/' . basename($filelocation));
+                echo "Could not reach server, xml moved to push directory"; 
+              }
+            }
+            else {
+              // We want to move the file to the suggested_directory
+              echo "Google did not edit the address, but it is also not eligible for pushing. Moving to suggested.";
+              rename($filelocation, $ini['suggested_directory'] . '/' . basename($filelocation));
+            }
+          }
+        }
+        else {
+          // Heh, we're not sure here. It should be checked manually
+          foreach ($result as $key => $val) {
+            @$order->order->ship_data->suggested_address->$legend[$key] = $val;
+          }
+          exportCurrent($order, $ini, $orderfile, 'incorrect');
+          echo "Exported new XML file, seems to be incorrect (House number (Google: {$result['number']}, Given: {$s_address->$legend['number']}) and/or ZIP (Google: {$result['zip']}, Given: {$s_address->$legend['zip']}) are not the same)\n";    
+        }
+      }
+      else {
+        // Move it to a folder for manual correction
+        exportCurrent($order, $ini, $orderfile, 'incorrect');
+        echo "Exported new XML file, seems to be incorrect (Google couldn't find it)\n";
+      }
+    }
+  }
+  else {
+    echo "The type (country) of this order does not seem to be configured.\n";
+    echo "Leaving xml file in folder in case it gets added in the future.\n";
+  }
+  echo "--- Leaving $basename ---\n"; 
+  sleep(1);
+}

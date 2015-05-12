@@ -1,0 +1,40 @@
+<?
+/**
+ * This class will handle outgoing communication
+ *
+ * PHP version 5.3
+ *
+ * @author     Vic Degraeve <vicdegraeve@me.com>
+ * @version    1.0
+ */
+
+class Push {
+  private $url;
+  
+  function __construct() {
+    // Load up config file 
+    $ini = parse_ini_file(implode('/', array_slice(explode("/", __FILE__), 0, -3)).'/config.ini');
+    $this->url = $ini['push_url'];
+  }
+  
+  /**
+   *  This will call the exeternal server set in the construct with given xml
+   */  
+  public function securewebregistrations($xml, $debug = false) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $this->url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml'));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, urlencode($xml));
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $result = curl_exec($ch);
+	  $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if($debug) var_dump($result);
+    if ($http_status != 0) return TRUE;
+      else return FALSE;
+  }
+}

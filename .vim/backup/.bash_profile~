@@ -1,0 +1,13 @@
+#
+ ~/.bash_profile
+#
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+
+export PATH="${PATH}:/home/moeflon/.bin"
+eval $(dircolors ~/.dircolors)
+
+if [ "$(tty)" = "/dev/tty1" ]; then
+    exec startx
+fi
+

@@ -1,0 +1,61 @@
+<?php
+namespace Plugin\Models;
+class Friendship {
+    private $user_one;
+    private $user_two;
+    private $status;
+    private $request_user_id;
+    private $action_user_id;
+
+    public function __construct($id = null)
+    {
+    }
+
+    public static function insertTable()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix.'numerology_friendship';
+        $sql = "CREATE TABLE $table (
+            id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_one_id INT(11) UNSIGNED NOT NULL,
+            user_two_id INT(11) UNSIGNED NOT NULL,
+            status TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
+            ) DEFAULT CHARSET=utf8;"
+
+        require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+        \dbDelta($sql);  
+    }
+
+    public static function order($one, $two)
+    {
+        return ($one < $two) ? Array($one, $two) : Array($two, $one);
+    }
+
+    public static function areFriends($one, $two)
+    {
+        list($one, $two) = self::order($one, $two);
+    }
+
+    public static function getFriends($id)
+    {
+    }
+
+    public static function getSent($id)
+    {
+    }
+
+    public static function getReceived($id)
+    {
+    }
+
+    // One is the requester, two is receiver
+    public static function sendRequest($one, $two)
+    {
+        list($one, $two) = self::order($one, $two);
+    }
+
+    public function accept()
+    {
+    }
+}
+

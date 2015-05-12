@@ -1,0 +1,36 @@
+<?php
+namespace Engine\Parts;
+use Engine\Models\Profile;
+use Engine\Helpers\Number;
+class Blueprint {
+    private $destination;
+    private $day;
+    private $month;
+    private $year;
+    private $personality;
+    private $feeling;
+    private $intellect;
+    private $challenge;
+    private $essence;
+
+    public function __construct(Profile $profile) 
+    {
+        $this->destination = $profile->birthday->sum;
+        $this->day = $profile->birthday->day;
+        $this->month = $profile->birthday->month;
+        $this->year = $profile->birthday->year;
+        $this->personality = $profile->name->personality;
+        $this->feeling = $profile->name->feeling;
+        $this->intellect = $profile->name->intellect;
+        $this->challenge = $profile->name->challenge;
+        $this->essence = Number::sum(
+            $profile->master, $profile->name->personality + $profile->birthday->sum
+        );
+    }
+    
+    public function __get($var)
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+}
+

@@ -1,0 +1,47 @@
+<?php
+/**
+ * Plugin Name: SmartRhythm
+ * Plugin URI: http://smartrhythm.com
+ * Description: SmartRhythm Engine for WordPress
+ * Version: 0.0.1
+ * Author: Lexerim
+ */
+require_once 'loader.php';
+
+register_activation_hook(
+    __FILE__,
+    array(SmartRhythm::instance(), 'activate')
+);
+
+register_deactivation_hook(
+    __FILE__,
+    array(SmartRhythm::instance(), 'deactivate')
+);
+
+class SmartRhythm {
+    protected static $instance = NULL;
+    private $page;
+
+    public static function instance() 
+    {
+        if(self::$instance === NULL) self::$instance = new self;
+        return self::$instance;
+    }
+
+    public function __construct()
+    {
+        $this->page = new \Plugin\Page;
+    }
+
+    public function activate()
+    {
+        $this->page->create();
+        \flush_rewrite_rules();
+    }
+
+    public function deactivate()
+    {
+        $this->page->delete();
+        \flush_rewrite_rules();
+    }
+}

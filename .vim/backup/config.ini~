@@ -1,0 +1,10 @@
+; Configuration
+directory  = "/path/to/xml/directory"
+correct_directory  = "/path/to/correct/xml/directory"
+incorrect_directory  = "/path/to/incorrect/xml/directory"
+backup = "/path/to/original/xml/backup/directory"
+enable_backup = 1
+enable_correct = 1
+push_directory = "/path/to/directory/containing/to/be/pushed/xmls"
+push_url = "https://securewebregistrations.net/wimperwensen/import"
+suggested_directory = "/path/to/suggested/directory"

@@ -1,0 +1,105 @@
+<?php
+namespace Engine\Helpers;
+use Engine\Helpers\Number;
+class Name {
+    private $master;
+    private $string;
+    private $vowels;
+    private $consonants;
+    private $characters;
+
+    private $_feeling;
+    private $_personality;
+    private $_intellect;
+
+    private $feeling;
+    private $personality;
+    private $intellect;
+    private $challenge;
+
+    private function isolate($string)
+    {
+        // We need to hardcode the vowels
+        $vowels = Array('a', 'e', 'i', 'o', 'u', 'y');
+        
+        $this->vowels = Array();
+        $this->consonants = Array();
+        $this->characters = Array();
+        $string = str_replace(' ', '', $string);       
+        $stringLength = strlen($string);
+        for ($i = 0; $i < $stringLength; $i++) {
+            $string[$i] = strtolower($string[$i]);
+
+            // Isolate vowels and consonants
+            in_array($string[$i], $vowels) ? 
+                array_push($this->vowels, $string[$i]) :
+                array_push($this->consonants, $string[$i]);
+
+            // Any vowel or consonant is a character, no?
+            array_push($this->characters, $string[$i]);
+        }
+        
+        // All the letters that are in the alphabet but not in the chararray
+        // $this->missing = array_diff(range('a', 'z'), array_unique($this->characters));
+    }
+
+    public function sumParts()
+    {
+       $this->feeling = Number::sum($this->master, $this->_feeling);
+       $this->personality = Number::sum($this->master, $this->_personality);
+       $this->intellect = Number::sum($this->master, $this->_intellect);
+    }
+
+    public function add(Name $name) 
+    {
+        return new Name ($this->master, $this->string . $name->string);
+    }
+
+    private function toNumber($letter) 
+    {
+        // Looks really complicated but really is not.
+        // Ord looks at the ASCII order
+        // Offset is taken care of the A subtraction
+        // String to upper is because of ASCII's differentiation
+        // between up and downcase
+        $number = (ord(strtoupper($letter)) - ord('A') + 1) % 9;
+        // Because of the modulus we need to make a seperate case for the nines
+        return ($number === 0) ? 9 : $number;
+    }
+
+    private function arrayToNumbers($letters)
+    {
+        $new = Array();
+        foreach ($letters as $letter) {
+            array_push($new, $this->toNumber($letter));
+        }
+        return $new;
+    }
+
+    public function __construct($master, $name)
+    {
+        $this->master = $master;
+        $this->string = $name;
+        $this->isolate($name);
+
+        $this->_feeling = $this->arrayToNumbers($this->vowels);
+        $this->_personality = $this->arrayToNumbers($this->characters);
+        $this->_intellect = $this->arrayToNumbers($this->consonants);
+        $this->challenge = array_diff(
+            range('1', '9'), 
+            // We're using personality here because it contains all the characters
+            // If the personality logic changes, we might need to make a separate variable with all the characters as numbers
+            // But we won't do it if we don't have to, because of performance and laziness
+            array_unique($this->_personality)
+        );
+
+        // Challenge needs to be 0 if there are no missing numbers
+        if(!count($this->_challenge)) $this->_challenge = Array(0); 
+        $this->sumParts();
+    }
+
+    public function __get($var)
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+}

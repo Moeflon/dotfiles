@@ -1,0 +1,9 @@
+qemu-system-x86_64\
+ -enable-kvm\
+ -m 4096\
+ -vga std\
+ -boot d disk.qcow2\
+ -soundhw ac97\
+ -cpu host\
+ -daemonize
+

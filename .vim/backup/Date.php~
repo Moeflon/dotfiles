@@ -1,0 +1,56 @@
+<?php
+namespace Engine\Helpers;
+use Engine\Helpers\Number;
+class Date {
+    private $master;
+    private $day;
+    private $month;
+    private $year;
+    private $sum;
+    
+    private function sumParts()
+    {
+        foreach (Array('day', 'month', 'year') as $part) {
+            $this->$part = Number::sum($this->master, $this->$part);
+        }
+    }
+
+    public function __construct($master, $date) 
+    {
+        $this->master = $master;
+        if(count($date) === 1) {
+            if(is_bool($date[0]) && $date[0] == true) {
+                $this->day = date('j');
+                $this->month = date('n');
+                $this->year = date('Y');
+            }
+            elseif(is_int((int)$date[0])) {
+                $this->day = date('j', $date[0]);
+                $this->month = date('n', $date[0]);
+                $this->year = date('Y', $date[0]);
+            }
+        }
+        elseif(count($date) === 3) {
+            $this->day = (int) $date[0];
+            $this->month = (int) $date[1];
+            $this->year = (int) $date[2];
+        }
+        else {
+            throw new Exception('Invalid argument array');
+        }
+
+        // Sumparts goes first because this simplifies sum as we already simplified the parts
+        $this->sumParts();
+        $this->sum = Number::sum($this->master, $this->day + $this->month + $this->year); 
+    }
+
+    public function add(Date $that) 
+    {
+        return new Date($this->master, Array($this->day + $that->day, $this->month + $that->month, $this->year + $that->year));
+    }
+
+    public function __get($var) 
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+}

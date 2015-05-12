@@ -1,0 +1,40 @@
+<?php
+use Carbon\Carbon;
+class PollServer {
+    public function fire($job, $data) 
+    {
+        try {
+            DB::reconnect($data['env']);
+            
+            // Refresh server
+            $server = Server::find($data['id']);
+            if(!is_null($server)) {
+                $refresh = $server->refresh();
+                if($refresh) {
+                  // Re-release Job
+                  $date = Carbon::now()->addMinutes(5);
+                  Queue::later($date, 'PollServer', array('id' => $data['id'], 'env' => $data['env']), 'online');
+                }
+                else {
+                  // Re-release Job
+                  $date = Carbon::now()->addMinutes(20);
+                  Queue::later($date, 'PollServer', array('id' => $data['id'], 'env' => $data['env']), 'offline');
+                }
+                Favicon::save($data['id']);
+                Banner::cache($data['id']);
+            }
+
+        }
+        catch (Exception $e) {
+            var_dump($e->getMessage());
+            $date = Carbon::now()->addMinutes(20);
+            Queue::later($date, 'PollServer', array('id' => $data['id'], 'env' => $data['env']), 'online');
+        }
+        try {
+	        $job->delete();
+        }
+        catch (Exception $e) {
+            var_dump($e->getMessage());
+        }
+    }
+}

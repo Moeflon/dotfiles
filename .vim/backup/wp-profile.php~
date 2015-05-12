@@ -1,0 +1,186 @@
+<?php
+// Add the form pars
+add_action('register_form', 'm_register_form');
+function m_register_form() {
+    $first_name = (!empty($_POST['first_name'])) ? trim($_POST['first_name']) : '';
+    $last_name = (!empty($_POST['last_name'])) ? trim($_POST['last_name']) : '';
+    $day = (!empty($_POST['day'])) ? trim($_POST['day']) : '';
+    $month = (!empty($_POST['month'])) ? trim($_POST['month']) : '';
+    $year = (!empty($_POST['year'])) ? trim($_POST['year']) : '';
+    $master = (!empty($_POST['master'])) ? true : false; 
+    ?>
+    <p>
+        <label for="first_name"><?php _e('First Name') ?><br/>
+        <input type="text" name="first_name" id="first_name" class="input" value="<?php echo esc_attr( wp_unslash( $first_name ) ); ?>" size="25" /></label>
+    </p>
+    <p>
+        <label for="last_name"><?php _e('Last Name') ?><br/>
+        <input type="text" name="last_name" id="last_name" class="input" value="<?php echo esc_attr( wp_unslash( $last_name ) ); ?>" size="25" /></label>
+    </p>
+    <p>
+        <label for="day"><?php _e('Date of Birth') ?><br/>
+        <select name="day" id="day">
+            <?php for ($i=1; $i<=31; $i++): ?>
+                <option <?php echo ($day == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $i; ?></option>
+            <?php endfor; ?>
+        </select>
+        <select name="month" id="month">
+	    <?php $months = Array(__('January'), __('February'), __('March'), __('April'), __('May'), __('June'), __('July'), __('August'), __('September'), __('October'), __('November'), __('December')); ?>
+            <?php for ($i=1; $i<=12; $i++): ?>
+                <option <?php echo ($month == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $months[$i-1]; ?></option>
+            <?php endfor; ?>
+        </select>
+        <select name="year" id="year">
+            <?php for ($i=date("Y"); $i>=1900; $i--): ?>
+                <option <?php echo ($year == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $i; ?></option>
+            <?php endfor; ?>
+        </select>
+	</label>
+    </p>
+    <br/>
+    <p>
+        <label for="master">
+        <input type="checkbox" name="master" id="master" value="1" <?php echo ($master === true) ? 'checked' : ''; ?>/> <?php _e('Stop at master numbers'); ?><br/>
+        </label>
+    </p>
+    <br/>
+<?php
+}
+
+// Form validating (this feels so wrong, so unMVC, almost want to hit myself)
+add_filter('registration_errors', 'm_registration_errors', 10, 3);
+function m_registration_errors($errors, $sanitized_user_login, $user_email) {
+    if(empty($_POST['first_name']) || !empty($_POST['first_name']) && trim($_POST['first_name']) == '') {
+        $errors->add('first_name_error', __('<strong>ERROR</strong>: You must include a first name.'));
+    }
+
+    if(empty($_POST['last_name']) || !empty($_POST['last_name']) && trim($_POST['last_name']) == '') {
+        $errors->add('last_name_error', __('<strong>ERROR</strong>: You must include a last name.'));
+    }
+
+    if(!((int) $_POST['day'] > 1 && (int) $_POST['month'] > 1 && (int) $_POST['year'] > 1)) {
+	$errors->add('date_error', __('<strong>ERROR</strong>: You must include your birthdate.'));
+    }
+
+    return $errors;
+}
+
+// Inserting the things
+add_action('user_register', 'm_user_register');
+function m_user_register($user_id)  {
+    if(!empty($_POST['first_name'])) {
+        update_user_meta($user_id, 'first_name', trim($_POST['first_name']));
+    }
+
+    if(!empty($_POST['last_name'])) {
+        update_user_meta($user_id, 'last_name', trim($_POST['last_name']));
+    }
+
+    if((int) $_POST['day'] > 1 && (int) $_POST['month'] > 1 && (int) $_POST['year'] > 1) {
+        update_user_meta($user_id, 'day', (int) $_POST['day']);
+        update_user_meta($user_id, 'month', (int) $_POST['month']);
+        update_user_meta($user_id, 'year', (int) $_POST['year']);
+    }
+
+    $master = (!empty($_POST['master'])) ? 1 : 0; 
+    update_user_meta($user_id, 'master', $master);
+}
+
+// User profile form
+// First we want to hide some useless forms
+if(!function_exists('remove_plain_bio')){
+    function remove_plain_bio($buffer) {
+        $titles = array('#<h3>'. __('Personal Options') .'</h3>#');
+        $buffer=preg_replace($titles,'<h3>Temp</h3>',$buffer,1);
+        $biotable='#<h3>Temp</h3>.+?.+?/table>#s';
+        $buffer=preg_replace($biotable,'', $buffer,2);
+
+        $titles = array('#<h3>'. __('About Yourself') .'</h3>#','#<h3>'. __('About the user') .'</h3>#');
+        $buffer=preg_replace($titles,'<h3>Password</h3>',$buffer,1);
+        $biotable='#<h3>Password</h3>.+?<table.+?/tr>#s';
+        $buffer=preg_replace($biotable,'<h3>Password</h3> <table class="form-table">',$buffer,1);
+        return $buffer;
+    }
+
+    function profile_admin_buffer_start() { ob_start("remove_plain_bio"); }
+    function profile_admin_buffer_end() { ob_end_flush(); }
+}
+
+function update_contact_methods($contactmethods) {
+    unset($contactmethods['aim']);  
+    unset($contactmethods['jabber']);  
+    unset($contactmethods['yim']);  
+
+    return $contactmethods;
+}
+
+add_action('admin_head', 'profile_admin_buffer_start');
+add_action('admin_footer', 'profile_admin_buffer_end');
+add_filter('user_contactmethods', 'update_contact_methods', 10, 1);
+remove_action('admin_color_scheme_picker', 'admin_color_scheme_picker');
+add_filter( 'show_admin_bar', '__return_false' );
+
+// Now we add useful ones
+add_action('show_user_profile', 'm_profile_form');
+add_action('edit_user_profile', 'm_profile_form');
+
+function m_profile_form($user) {
+    $user_id = $user->data->ID;
+    ?>
+    <h3><?php _e('Numerology Information'); ?></h3>
+    <table class="form-table">
+        <tr>
+            <th><label for="day"><?php _e('Date of Birth'); ?></label></th>
+            <td>
+                <?php
+                $day = get_user_meta($user_id, 'day', true);
+                $month = get_user_meta($user_id, 'month', true);
+                $year = get_user_meta($user_id, 'year', true);
+                $master = get_user_meta($user_id, 'master', true);
+                ?>
+
+                <select name="day" id="day">
+                    <?php for ($i=1; $i<=31; $i++): ?>
+                        <option <?php echo ($day == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $i; ?></option>
+                    <?php endfor; ?>
+                </select>
+                <select name="month" id="month">
+                    <?php $months = Array(__('January'), __('February'), __('March'), __('April'), __('May'), __('June'), __('July'), __('August'), __('September'), __('October'), __('November'), __('December')); ?>
+                    <?php for ($i=1; $i<=12; $i++): ?>
+                        <option <?php echo ($month == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $months[$i-1]; ?></option>
+                    <?php endfor; ?>
+                </select>
+                <select name="year" id="year">
+                    <?php for ($i=date("Y"); $i>=1900; $i--): ?>
+                        <option <?php echo ($year == $i) ? 'selected' : ''; ?> value="<?php echo $i; ?>"><?php echo $i; ?></option>
+                    <?php endfor; ?>
+                </select>
+            </td> 
+        </tr>
+        <tr>
+            <th>
+                <label for="master"><?php _e('Stop at master numbers'); ?></label>
+            </th>
+            <td>
+                <input type="checkbox" name="master" id="master" value="1" <?php echo ((int) $master === 1) ? 'checked' : ''; ?>/> <br/>
+            </td>
+        </tr>
+    </table>
+    <?php
+}
+
+add_action('personal_options_update', 'm_profile_update');
+add_action('edit_user_profile_update', 'm_profile_update');
+function m_profile_update($user_id) {
+    if (!current_user_can('edit_user', $user_id))
+        return false; 
+
+    if((int) $_POST['day'] > 1 && (int) $_POST['month'] > 1 && (int) $_POST['year'] > 1) {
+        update_user_meta($user_id, 'day', (int) $_POST['day']);
+        update_user_meta($user_id, 'month', (int) $_POST['month']);
+        update_user_meta($user_id, 'year', (int) $_POST['year']);
+    }
+
+    $master = (!empty($_POST['master'])) ? 1 : 0; 
+    update_user_meta($user_id, 'master', $master);
+}

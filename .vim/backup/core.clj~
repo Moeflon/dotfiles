@@ -1,0 +1,65 @@
+(ns smartschool.core
+  (:require [clj-http.client :as client]
+            [clojure.xml :as xml]))
+
+(def auth ["vide900047", "u0438610478210599"])
+(def cs (clj-http.cookies/cookie-store))
+
+(defn login
+  []
+  (client/post "https://sjcgent.smartschool.be/Authentication/Login/logindata" {:form-params {:username (auth 0)
+                                                                                              :password (auth 1)}
+                                                                                :cookie-store cs}))
+
+(defn list-class-builder
+  []
+  "<request>
+    <command>
+      <subsystem>filter</subsystem>
+      <action>get Class</action>
+      <params>
+        <param name=\"endDateTimestamp\"><![CDATA[1410624290]]></param>
+      </params>
+    </command>
+  </request>")
+
+(defn list-lesson-builder
+  [class-id]
+  (str "<request>
+    <command>
+      <subsystem>agenda</subsystem>
+      <action>get lessons</action>
+      <params>
+        <param name=\"startDateTimestamp\"><![CDATA[1410192290]]></param>
+        <param name=\"endDateTimestamp\"><![CDATA[1410624290]]></param>
+        <param name=\"filterType\"><![CDATA[Class]]></param>
+        <param name=\"filterID\"><![CDATA[" class-id "]]></param>
+        <param name=\"gridType\"><![CDATA[2]]></param>
+        <param name=\"classID\"><![CDATA[0]]></param>
+        <param name=\"startDateTimestampOld\"><![CDATA[1410192290]]></param>
+        <param name=\"assignmentTypeID\"><![CDATA[38]]></param>
+      </params>
+    </command>
+  </request>"))
+
+(defn get-data
+  [builder]
+  (-> (client/post "https://sjcgent.smartschool.be/index.php?module=Agenda&file=dispatcher" {:headers {"Accept" "*/*"
+                                                                                                   "Accept-Encoding" "gzip,deflate,sdch"
+                                                                                                   "Accept-Language" "en-US,en;q=0.8,nl;q=0.6"
+                                                                                                   "Cache-Control" "no-cache"
+                                                                                                   "Connection" "keep-alive"
+                                                                                                   "Pragma" "no-cache"
+                                                                                                   "Origin" "https://sjcgent.smartschool.be"
+                                                                                                   "Referer" "https://sjcgent.smartschool.be/index.php?module=Agenda"
+                                                                                                   "User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36"
+                                                                                                   "X-Requested-With" "XMLHttpRequest"
+                                                                                                   "Content-Type" "application/x-www-form-urlencoded; charset=UTF-8"
+                                                                                                   "Host" "sjcgent.smartschool.be"}
+                                                                                         :form-params {:command builder}
+                                                                                         :cookie-store cs})
+      :body))
+(defn -main
+  [& args]
+  (login)
+  (get-data (list-class-builder)))

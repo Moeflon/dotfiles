@@ -1,0 +1,167 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Application & Route Filters
+|--------------------------------------------------------------------------
+|
+| Below you will find the "before" and "after" events for the application
+| which may be used to do any work before or after a request into your
+| application. Here you may also register your custom route filters.
+|
+*/
+
+App::before(function($request)
+{
+    //
+});
+
+
+App::after(function($request, $response)
+{
+    //
+});
+
+/*
+|--------------------------------------------------------------------------
+| Authentication Filters
+|--------------------------------------------------------------------------
+|
+| The following filters are used to verify that the user of the current
+| session is logged into this application. The "basic" filter easily
+| integrates HTTP Basic authentication for quick, simple checking.
+|
+*/
+Route::filter('auth', function()
+{
+    if (Auth::guest())
+        return Redirect::guest('login');
+});
+
+Route::filter('permission', function($route)
+{
+    if (!Server::name($route->getParameter('name'))->hasPermission())
+        return Redirect::guest('login');
+});
+
+Route::filter('isAdmin', function($route)
+{
+    if (!Admin::inSession())
+        return Redirect::guest('login');
+});
+Route::filter('auth.basic', function()
+{
+    return Auth::basic();
+});
+
+Route::filter('currentCheck', function()
+{
+    if (Auth::check()) {
+        Session::flash('danger', Lang::get('server.messages.login.already'));
+        return Redirect::intended('/');
+    }
+});
+
+Route::filter('canVote', function($route)
+{
+    $player = (Input::get('player') ? Input::get('player') : false);
+    if (!(Server::name($route->getParameter('name'))->canVote($player))) {
+        Session::flash('danger', Lang::get('server.messages.vote.already'));
+        return Redirect::intended(URL::route('server.view', array(
+            $route->getParameter('name'),
+            'vote'
+        )));
+    }
+});
+
+Route::filter('resetToken', function($route)
+{
+    $server = Server::find($route->getParameter('id'));
+    if (!($server && $server->reset == $route->getParameter('token'))) {
+        Session::flash('danger', Lang::get('server.messages.reset.malformed'));
+        return Redirect::intended(URL::route('reset'));
+    }
+});
+
+Route::filter('rotator', function($route)
+{
+    $input = Input::all();
+    if (array_key_exists('ajax', $input) || array_key_exists('json', $input)) {
+        
+    } else {
+        $rotator = Premium::getPremiums(2, true);
+        View::share('rotator', $rotator);
+    }
+});
+
+Route::filter('captcha', function()
+{
+    $error = false;
+    
+    // Direct POST?
+    if (!isset($_SERVER['HTTP_REFERER'])) {
+        $error = true;
+    }
+    
+    // Set timelimit
+    $human_typing_time = 2;
+    $vars              = explode(',', $_POST['tlpm']);
+    if (md5(SERVERLIST_NAME . $vars[1]) != $vars[0] || time() < $vars[1] + $human_typing_time) {
+        $error = true;
+    }
+    
+    if (Session::has('captcha_key')) {
+        $key = Session::get('captcha_key');
+        if (!empty($key)) {
+            if (isset($_POST[$key]) && empty($_POST[$key])) {
+            } else {
+                $error = true;
+            }
+        } else {
+            $error = true;
+        }
+    } else {
+        $error = true;
+    }
+    @Session::forget('captcha_key');
+    
+    if ($error) {
+        Session::flash('danger', Lang::get('content.text.wrong'));
+        return Redirect::back();
+    }
+});
+
+/*
+|--------------------------------------------------------------------------
+| Guest Filter
+|--------------------------------------------------------------------------
+|
+| The "guest" filter is the counterpart of the authentication filters as
+| it simply checks that the current user is not logged in. A redirect
+| response will be issued if they are, which you may freely change.
+|
+*/
+
+Route::filter('guest', function()
+{
+    if (Auth::check())
+        return Redirect::to('/');
+});
+
+/*
+|--------------------------------------------------------------------------
+| CSRF Protection Filter
+|--------------------------------------------------------------------------
+|
+| The CSRF filter is responsible for protecting your application against
+| cross-site request forgery attacks. If this special token in a user
+| session does not match the one given in this request, we'll bail.
+|
+*/
+
+Route::filter('csrf', function()
+{
+    if (Session::token() != Input::get('_token')) {
+        throw new Illuminate\Session\TokenMismatchException;
+    }
+});

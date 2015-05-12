@@ -1,0 +1,18 @@
+<?php
+include 'Loader.php';
+date_default_timezone_set('Europe/Brussels');
+
+// master = true wilt zeggen, stop met verderrekenen als je een meestergetal hebt
+$profile = new \Application\Models\Profile;
+$profile->master = true;
+$profile->birthday = new \Application\Helpers\Date($profile->master, Array(25, 7, 1997));
+$profile->name = new \Application\Helpers\Name($profile->master, 'Vic');
+
+$friend = new \Application\Models\Profile;
+$friend->master = true;
+$friend->birthday = new \Application\Helpers\Date($profile->master, Array(21, 7, 1971));
+$friend->name = new \Application\Helpers\Name($friend->master, 'Frank');
+
+var_dump(new \Application\Controllers\Blueprint($profile));
+var_dump(new \Application\Controllers\Relationship($profile, $friend));
+var_dump(new \Application\Controllers\Rhythm($profile));

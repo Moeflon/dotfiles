@@ -1,0 +1,49 @@
+<?php
+namespace Application\Controllers;
+use Application\Models\Profile;
+use Application\Helpers\Date;
+use Application\Helpers\Number;
+class Rhythm {
+    private $day;
+    private $month;
+    private $year;
+    private $destination;
+    private $expDay;
+    private $expMonth;
+    private $expYear;
+    private $expDestination;
+    private $devDay;
+    private $devMonth;
+    private $devYear;
+
+    public function __construct(Profile $profile) 
+    {
+        $date = new Date($profile->master, Array(true));
+        $dates = $date->add($profile->birthday);
+        $birthSum = $profile->birthday->sum;
+
+        $this->day = $date->day;
+        $this->month = $date->month;
+        $this->year = $date->year;
+        $this->destination = $date->sum;
+        $this->expDay = Number::sum(
+            $profile->master, $date->day + $birthSum
+        );
+        $this->expMonth = Number::sum(
+            $profile->master, $date->month + $birthSum
+        );
+        $this->expYear = Number::sum(
+            $profile->master, $date->year + $birthSum
+        );
+        $this->expDestination = $dates->sum;
+        $this->devDay = $dates->day;
+        $this->devMonth = $dates->month;
+        $this->devYear = $dates->year;
+    }
+
+    public function __get($var)
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+}
+

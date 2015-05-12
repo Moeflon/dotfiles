@@ -1,0 +1,37 @@
+<?php
+namespace Engine\Controllers;
+use Engine\Models\Profile;
+use Engine\Helpers\Number;
+class Relationship {
+    private $destination;
+    private $day;
+    private $month;
+    private $year;
+    private $personality;
+    private $feeling;
+    private $intellect;
+    private $essence;
+
+    public function __construct(Profile $profile, Profile $friend) 
+    {
+        $birthdays = $profile->birthday->add($friend->birthday);
+        $names = $profile->name->add($friend->name);
+
+        $this->destination = $birthdays->sum;
+        $this->day = $birthdays->day;
+        $this->month = $birthdays->month;
+        $this->year = $birthdays->year;
+        $this->personality = $names->personality ;
+        $this->feeling = $names->feeling;
+        $this->intellect = $names->intellect;
+        $this->essence = Number::sum(
+            $profile->master, $names->personality + $birthdays->sum
+        );
+    }
+    
+    public function __get($var)
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+}
+

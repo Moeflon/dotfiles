@@ -1,0 +1,28 @@
+<?php
+namespace Bridge\Models;
+use Engine\Helpers\Date;
+use Engine\Helpers\Name;
+
+class Profile {
+    private $id;
+
+    public static function find($user_id)
+    {
+        return new self($user_id);
+    }
+
+    public function __construct($user_id)
+    {
+        $this->id = $user_id;
+    }
+
+    public function __get($var) 
+    {
+        return (isset($this->$var)) ? $this->$var : \get_user_meta($this->id, $var);
+    }
+
+    public function __set($var, $val)
+    {
+        \update_user_meta($this->id, $var,  $val);
+    }
+}

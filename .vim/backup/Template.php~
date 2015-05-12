@@ -1,0 +1,20 @@
+<?php
+/**
+ * Template Name: Numerology
+ */
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'Dispatch.php';
+get_header();
+
+global $wp_query;
+$type = (isset($wp_query->query_vars['type'])) ? $wp_query->query_vars['type'] : false;
+$step = (isset($wp_query->query_vars['step'])) ? $wp_query->query_vars['step'] : false;
+$friend = (isset($wp_query->query_vars['friend'])) ? $wp_query->query_vars['friend'] : false ;
+
+if($type) {
+    call_user_func_array(Array(\Plugin\Templates\Numerology\Dispatch::instance(), $type), Array($step, $friend));
+}
+else {
+    \Plugin\Templates\Numerology\Dispatch::instance()->index();
+}
+
+get_footer();

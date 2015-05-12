@@ -1,0 +1,59 @@
+<?php
+/**
+ * Plugin Name: Numerology Toolkit 
+ * Plugin URI: http://lexerim.com
+ * Description: Numerology WordPress Toolkit for Flowzo 
+ * Version: 0.0.1
+ * Author: Lexerim
+ */
+require_once 'loader.php';
+
+register_activation_hook(
+    __FILE__,
+    array(Flowzo::instance(), 'activate')
+);
+
+register_deactivation_hook(
+    __FILE__,
+    array(Flowzo::instance(), 'deactivate')
+);
+
+add_action(
+    'init', 
+    array(Flowzo::instance(), 'init')
+);
+
+class Flowzo {
+    protected static $instance = NULL;
+    private $pages;
+
+    public static function instance() 
+    {
+        if(self::$instance === NULL) self::$instance = new self;
+        return self::$instance;
+    }
+
+    public function __construct()
+    {
+        $this->pages = new stdClass;
+	$this->pages->numerology = new \Plugin\Pages\Numerology;
+    }
+
+    public function activate()
+    {
+        $this->pages->numerology->create();
+        \Plugin\Models\Friendship::insertTable();
+        \flush_rewrite_rules();
+    }
+
+    public function init()
+    {
+        ob_start();
+    }
+
+    public function deactivate()
+    {
+        $this->pages->numerology->delete();
+        \flush_rewrite_rules();
+    }
+}

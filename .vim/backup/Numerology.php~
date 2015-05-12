@@ -1,0 +1,52 @@
+<?php
+namespace Plugin;
+class Page {
+    public $id;
+
+    public function __construct()
+    {
+        $this->id = \get_option('numerology_id');
+        \add_filter('page_template', Array($this, 'template'));
+        \add_action('init', Array($this, 'rewrite'), 10, 0);
+    }
+
+    public function create()
+    {
+        $page = Array(
+            'post_name' => 'numerology',
+            'post_title' => __('Numerology'),
+            'post_status' => 'publish',
+            'post_type' => 'page',
+            'comment_status' => 'closed',
+        );
+        $this->id = \wp_insert_post($page, true);	
+        \add_option('numerology_id', $this->id);
+    }
+
+    public function template($page_template)
+    {
+        if(is_page((int)$this->id)) {
+            $page_template = PLUGIN_ROOT . DIRECTORY_SEPARATOR . 'plugin' . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'Numerology' . DIRECTORY_SEPARATOR . 'Template.php';
+        }
+        return $page_template;
+    }
+
+    public function rewrite()
+    {
+        \add_rewrite_tag('%type%', '([^&]+)');
+        \add_rewrite_tag('%step%', '([^&]+)');
+        \add_rewrite_tag('%friend%', '([^&]+)');
+        \add_rewrite_rule('^numerology/([^/]*)/([^/]*)/([^/]*)/?', 'index.php?page_id='.$this->id.'&type=$matches[1]&step=$matches[2]&friend=$matches[3]', 'bottom');
+        \add_rewrite_rule('^numerology/([^/]*)/([^/]*)/?', 'index.php?page_id='.$this->id.'&type=$matches[1]&step=$matches[2]', 'bottom');
+        \add_rewrite_rule('^numerology/([^/]*)/?', 'index.php?page_id='.$this->id.'&type=$matches[1]', 'bottom');
+        \add_rewrite_rule('^numerology/?', 'index.php?page_id='.$this->id.'&type=index', 'bottom');
+   }
+
+    public function delete()
+    {
+	$id = \get_option('numerology_id');
+        \wp_delete_post($this->id);
+        \delete_option('numerology_id');
+    }
+}
+

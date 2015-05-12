@@ -1,0 +1,65 @@
+#include <functional>
+#include <algorithm>
+#include "../include/MinecraftQuery.h"
+
+using namespace boost::asio;
+using namespace std;
+using namespace std::placeholders;
+
+ModernMcQuery::ModernMcQuery(char* host, char* port, int timeout)
+: _query { host, port }, 
+  _io_service {}, 
+  _timer { _io_service }, 
+  _socket { _io_service }, 
+  _timeout { seconds(timeout) } 
+{}
+
+ModernMcData ModernMcQuery::ping() const 
+{
+	_timer.expires_from_now(_timeout);
+	_timer.async_watch(
+		[](const error_code& e) {
+			if(e) return;
+			_socket.cancel();	
+		}
+	);
+
+	try {
+		// This resolves your ip and port to something useful for your computer
+		_endpoint = _resolver.resolve(_query);
+
+		// This connects to said endpoint.
+		// The second parameter calls our connector member function (hence the 'this' as second parameter) as handler
+		// The _1 is a placeholder, this forwards the argument otherwise given to a lambda
+		_socket.async_connect(_endpoint, bind(&ModernMcQuery::connector, this, _1));
+
+		// Because we're running it async, we need io_service to run its threads
+		_io_service.reset();
+		_io_service.run();
+	}
+	catch (const exception& e) {}
+}
+
+void ModernMcQuery::connector(const error_code& e) 
+{
+	if(e) return;
+	
+	// http://wiki.vg/Server_List_Ping
+	// Recheck var_int http://stackoverflow.com/questions/19758270/read-varint-from-linux-sockets
+	// We can't have these datatypes in one buffer, so have a vector of buffers
+	// unsigned char req[] = { '0',  pack_var_int(4), pack_var_int(strlen(host)), host, unsigned short port, pack_var_int(1) }
+
+}
+
+void ModernMcQuery::sender(const error_code& e, std::size_t num_bytes) 
+{
+
+}
+
+void ModernMcQuery::receiver(const error_code& e, std::size_t num_bytes) 
+{
+
+}
+
+ModernMcQuery::~ModernMcQuery() 
+{}

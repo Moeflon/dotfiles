@@ -1,0 +1,63 @@
+<?php
+namespace Application\Helpers;
+class Number {
+    public static function sum($master, $digits)
+    {
+        $master = $master;
+        $intermediate = (is_array($digits)) ? $digits : str_split($digits);
+
+        while (count($intermediate) > 1) {
+            $intermediate = array_sum($intermediate);
+
+            // While there are more than one digits
+            // if the master is enabled and the digits form master numbers
+            if($master == true && 
+              ($intermediate == 11 || $intermediate == 22 || $intermediate == 33)) {
+                return $intermediate;
+                break;
+            } 
+
+            $intermediate = str_split($intermediate);
+        }
+        return intval((is_array($intermediate)) ? implode('', $intermediate) : $intermediate);
+    }
+}
+    
+/*
+ *  This is commented out because I tought that we would need an instantiated
+ *  class, but static will do. Still keeping this for future needs.
+ *
+    private $number;
+    private $digits;
+    private $sum;
+    private $master;
+
+    // For convenience we will make the sum method both static 
+    // and instantiated
+    public function __call($name, $arguments)
+    {
+        if($name == 'sum') {
+            // We just call the static method with the
+            // current object as an argument, smart 
+            return static::sum($this->master, $this->digits);
+        }
+    }
+
+
+    public function __construct(Boolean $master, Int $number)
+    {
+        $this->number = $number;
+        $this->digits = str_split($number);
+        $this->master = $master;
+    }
+    
+    public function add(Number $number) 
+    {
+        return new Number($this->master, $this->number + $number->number);
+    }
+
+    public function __get($var)
+    {
+        return (isset($this->$var)) ? $this->$var : false;
+    }
+*/
